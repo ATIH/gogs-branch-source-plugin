@@ -24,10 +24,12 @@
 package com.cloudbees.jenkins.plugins.gogs.hooks;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 import com.cloudbees.jenkins.plugins.gogs.GogsSCMSource;
 
 import hudson.security.ACL;
+import hudson.security.ACLContext;
 import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceOwner;
 import jenkins.scm.api.SCMSourceOwners;
@@ -51,6 +53,8 @@ public abstract class HookProcessor {
      */
     public abstract void process(String payload);
 
+    private static final Logger LOGGER = Logger.getLogger(HookProcessor.class.getName());
+
     /**
      * To be called by implementations once the owner and the repository have been extracted from the payload.
      * 
@@ -58,21 +62,19 @@ public abstract class HookProcessor {
      * @param repository the repository name as configured in the SCMSource
      */
     protected void scmSourceReIndex(final String owner, final String repository) {
-        ACL.impersonate(ACL.SYSTEM, new Runnable() {
-            @Override 
-            public void run() {
-                for (SCMSourceOwner scmOwner : SCMSourceOwners.all()) {
-                    List<SCMSource> sources = scmOwner.getSCMSources();
-                    for (SCMSource source : sources) {
-                        // Search for the correct SCM source
-                        if (source instanceof GogsSCMSource && ((GogsSCMSource) source).getRepoOwner().equals(owner)
-                                && ((GogsSCMSource) source).getRepository().equals(repository)) {
-                            scmOwner.onSCMSourceUpdated(source);
-                        }
+        try (ACLContext ctx = ACL.as(ACL.SYSTEM)) {
+            for (SCMSourceOwner scmOwner : SCMSourceOwners.all()) {
+                List<SCMSource> sources = scmOwner.getSCMSources();
+                for (SCMSource source : sources) {
+                    LOGGER.info(String.format("Processing push event for source %s", ((GogsSCMSource) source).getRemote()));
+                    // Search for the correct SCM source
+                    if (source instanceof GogsSCMSource && ((GogsSCMSource) source).getRepoOwner().equals(owner)
+                            && ((GogsSCMSource) source).getRepository().equals(repository)) {
+                        scmOwner.onSCMSourceUpdated(source);
                     }
                 }
             }
-        });
+        }
     }
 
 }

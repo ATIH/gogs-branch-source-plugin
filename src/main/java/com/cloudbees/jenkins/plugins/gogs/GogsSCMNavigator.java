@@ -200,7 +200,13 @@ public class GogsSCMNavigator extends SCMNavigator {
         scmSource.setGogsServerUrl(gogsServerUrl);
         scmSource.setSshPort(sshPort);
         projectObserver.addSource(scmSource);
-        projectObserver.complete();
+        try {
+            projectObserver.complete();
+        } catch(IOException e) {
+            e.printStackTrace();
+            throw new InterruptedException();
+        }
+
     }
 
     @Extension 
